@@ -1,3 +1,5 @@
+import json
+import time
 from dotenv import load_dotenv
 import os
 import requests
@@ -5,10 +7,10 @@ import requests
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
-START_PLAYER = "%2388JL2QYG"
-PLAYER_LIMIT = 100
-DATA_FILE = 'data/raw_battlelog.json'
-ALLOWED_TYPES = {"pathOfLegend", "casual1v1", "tournament", "PvP"}
+START_PLAYER = "#88JL2QYG"
+PLAYER_LIMITx2 = 100
+DATA_FILE = 'data/extracted_battles.json'
+ALLOWED_TYPES = {"PvP", "pathOfLegend"}#, "casual1v1"}
 
 headers = {
     "Authorization": f"Bearer {API_KEY}"
@@ -16,8 +18,6 @@ headers = {
 
 players = [START_PLAYER]
 seen_players = set()
-#temp
-dataset = []
 
 def is_valid_battle(battle):
     return (
@@ -69,7 +69,7 @@ def extract_battle_data(battle):
         if not tag_a or not tag_b or tag_b in seen_players:
             return None
         
-        if len(players) < PLAYER_LIMIT and tag_b not in players:
+        if len(seen_players) < PLAYER_LIMITx2 and tag_b not in players:
             players.append(tag_b)
 
         crowns_a = team.get('crowns', 0)
@@ -81,22 +81,27 @@ def extract_battle_data(battle):
         cards_a, levels_a, evos_a, avg_a, cycle_a = parse_deck(team['cards'])
         cards_b, levels_b, evos_b, avg_b, cycle_b = parse_deck(opponent['cards'])
 
-        tower_troop_a = team.get('supportCards', [None])[0]
-        tower_troop_b = opponent.get('supportCards', [None])[0]
+        tower_troop_a = team.get('supportCards', [None])[1]
+        tower_troop_b = opponent.get('supportCards', [None])[1]
 
         return {
-            'CardsA': cards_a,
-            'CardsB': cards_b,
-            'LevelsA': levels_a,
-            'LevelsB': levels_b,
-            'EvosA': evos_a,
-            'EvosB': evos_b,
-            'TowerTroopA': tower_troop_a,
-            'TowerTroopB': tower_troop_b,
-            'AvgElixirA': avg_a,
-            'AvgElixirB': avg_b,
-            'CycleCostA': cycle_a,
-            'CycleCostB': cycle_b,
+            'cards_a': cards_a,
+            'cards_b': cards_b,
+            'levels_a': levels_a,
+            'levels_b': levels_b,
+            'evos_a': evos_a,
+            'evos_b': evos_b,
+
+            'tower_troop_a': tower_troop_a,
+            'tower_troop_b': tower_troop_b,
+
+            'avg_elixir_a': avg_a,
+            'avg_elixir_b': avg_b,
+            'cycle_cost_a': cycle_a,
+            'cycle_cost_b': cycle_b,
+
+            'battle_type': battle.get("type"),
+
             'label': 1 if crowns_a > crowns_b else 0
         }
 
@@ -119,8 +124,8 @@ def scrape_battle_log(player_tag):
             if not extracted_battle:
                 continue
             
-            #TODO
-            dataset.append(extracted_battle)
+            with open(DATA_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(extracted_battle) + "\n")
 
         print("Data saved successfully")
 
@@ -128,6 +133,10 @@ def scrape_battle_log(player_tag):
         print("Error:", response.status_code, response.text)
 
 def scrape():
-    for player in players:
+    while players:
+        player = players.pop(0)
         scrape_battle_log(player)
+        time.sleep(0.2)
 
+if __name__ == "__main__":
+    scrape()
