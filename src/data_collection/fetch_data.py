@@ -8,7 +8,7 @@ load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 START_PLAYER = "#88JL2QYG"
-PLAYER_LIMITx2 = 100
+PLAYER_LIMIT = 1000
 DATA_FILE = 'data/extracted_battles.json'
 ALLOWED_TYPES = {"PvP", "pathOfLegend"}#, "casual1v1"}
 
@@ -18,6 +18,7 @@ headers = {
 
 players = [START_PLAYER]
 seen_players = set()
+seen_player_count = 0
 
 def is_valid_battle(battle):
     return (
@@ -26,7 +27,7 @@ def is_valid_battle(battle):
         and len(battle["team"]) > 0 and len(battle["opponent"]) > 0
     )
 
-def parse_deck(cards, support_card=None):
+def parse_deck(cards):
     rarity_bonus = {
         "common": 0,
         "rare": 2,
@@ -69,7 +70,7 @@ def extract_battle_data(battle):
         if not tag_a or not tag_b or tag_b in seen_players:
             return None
         
-        if len(seen_players) < PLAYER_LIMITx2 and tag_b not in players:
+        if seen_player_count < PLAYER_LIMIT and tag_b not in players:
             players.append(tag_b)
 
         crowns_a = team.get('crowns', 0)
@@ -81,8 +82,8 @@ def extract_battle_data(battle):
         cards_a, levels_a, evos_a, avg_a, cycle_a = parse_deck(team['cards'])
         cards_b, levels_b, evos_b, avg_b, cycle_b = parse_deck(opponent['cards'])
 
-        tower_troop_a = team.get('supportCards', [None])[1]
-        tower_troop_b = opponent.get('supportCards', [None])[1]
+        tower_troop_a = team.get('supportCards', [{}])[0].get("id")
+        tower_troop_b = opponent.get('supportCards', [{}])[0].get("id")
 
         return {
             'cards_a': cards_a,
@@ -127,15 +128,22 @@ def scrape_battle_log(player_tag):
             with open(DATA_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(extracted_battle) + "\n")
 
-        print("Data saved successfully")
+        #print("Data saved successfully")
 
     else:
         print("Error:", response.status_code, response.text)
 
 def scrape():
-    while players:
+    if os.path.exists(DATA_FILE):
+        os.remove(DATA_FILE)
+    seen_player_count = 0
+
+    while players and seen_player_count < PLAYER_LIMIT:
         player = players.pop(0)
         scrape_battle_log(player)
+        seen_player_count += 1
+        if seen_player_count % 100 == 0:
+            print(f"Data of {seen_player_count} players collected")
         time.sleep(0.2)
 
 if __name__ == "__main__":
