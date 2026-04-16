@@ -73,6 +73,8 @@ def create_data_frame(file_path):
         row["avg_elixir_b"] = battle.get("avg_elixir_b", 8)
         row["cycle_cost_a"] = battle.get("cycle_cost_a", 25)
         row["cycle_cost_b"] = battle.get("cycle_cost_b", 25)
+        row["elixir_diff"] = row["avg_elixir_a"] - row["avg_elixir_b"]
+        row["cycle_diff"] = row["cycle_cost_a"] - row["cycle_cost_b"]
 
         row["label"] = battle.get("label", 0)
 
